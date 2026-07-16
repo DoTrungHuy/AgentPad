@@ -86,6 +86,71 @@ class PlanParserTest {
     }
 
     @Test
+    fun rejectsPlannedButUnimplementedTools() {
+        assertThrows(IllegalArgumentException::class.java) {
+            parser.parse(
+                "运行命令",
+                """
+                    {
+                      "title": "运行",
+                      "summary": "",
+                      "actions": [
+                        {
+                          "title": "Shell",
+                          "description": "",
+                          "tool": "run_command",
+                          "arguments": {"command": "ls"},
+                          "risk": "ACTION_APPROVAL",
+                          "reversible": false
+                        }
+                      ]
+                    }
+                """.trimIndent()
+            )
+        }
+    }
+
+    @Test
+    fun rejectsInstallPackageEvenIfMarkedTaskApproval() {
+        assertThrows(IllegalArgumentException::class.java) {
+            parser.parse(
+                "安装",
+                """
+                    {
+                      "actions": [
+                        {
+                          "tool": "install_package",
+                          "arguments": {"path": "/tmp/a.apk"},
+                          "risk": "TASK_APPROVAL"
+                        }
+                      ]
+                    }
+                """.trimIndent()
+            )
+        }
+    }
+
+    @Test
+    fun rejectsOpenUrlMissingHttpsArgument() {
+        assertThrows(IllegalArgumentException::class.java) {
+            parser.parse(
+                "打开网页",
+                """
+                    {
+                      "actions": [
+                        {
+                          "tool": "open_url",
+                          "arguments": {"url": "http://example.com"},
+                          "risk": "TASK_APPROVAL"
+                        }
+                      ]
+                    }
+                """.trimIndent()
+            )
+        }
+    }
+
+    @Test
     fun rejectsMixedSafeAndUnknownTools() {
         assertThrows(IllegalArgumentException::class.java) {
             parser.parse(

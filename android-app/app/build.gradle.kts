@@ -5,10 +5,15 @@ plugins {
     id("org.jetbrains.kotlin.kapt")
 }
 
-val releaseKeystorePath = providers.environmentVariable("AGENTPAD_KEYSTORE_PATH").orNull
-val releaseKeystorePassword = providers.environmentVariable("AGENTPAD_KEYSTORE_PASSWORD").orNull
-val releaseKeyAlias = providers.environmentVariable("AGENTPAD_KEY_ALIAS").orNull
-val releaseKeyPassword = providers.environmentVariable("AGENTPAD_KEY_PASSWORD").orNull
+fun signingEnv(name: String, legacyName: String): String? =
+    providers.environmentVariable(name)
+        .orElse(providers.environmentVariable(legacyName))
+        .orNull
+
+val releaseKeystorePath = signingEnv("POCKETAGENT_KEYSTORE_PATH", "AGENTPAD_KEYSTORE_PATH")
+val releaseKeystorePassword = signingEnv("POCKETAGENT_KEYSTORE_PASSWORD", "AGENTPAD_KEYSTORE_PASSWORD")
+val releaseKeyAlias = signingEnv("POCKETAGENT_KEY_ALIAS", "AGENTPAD_KEY_ALIAS")
+val releaseKeyPassword = signingEnv("POCKETAGENT_KEY_PASSWORD", "AGENTPAD_KEY_PASSWORD")
 val hasReleaseSigning = listOf(
     releaseKeystorePath,
     releaseKeystorePassword,
@@ -32,8 +37,8 @@ android {
         applicationId = "com.agentpad.app"
         minSdk = 28
         targetSdk = 36
-        versionCode = 211
-        versionName = "0.2.1-alpha.1"
+        versionCode = 251
+        versionName = "0.2.5-alpha.1"
         buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
         buildConfigField("String", "BUILD_CHANNEL", "\"development\"")
 

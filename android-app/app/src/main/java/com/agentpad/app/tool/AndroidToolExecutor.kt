@@ -6,33 +6,51 @@ import android.net.Uri
 import com.agentpad.app.domain.PlannedAction
 import com.agentpad.app.domain.ToolResult
 
-class AndroidToolExecutor(private val context: Context) {
-    val availableTools: Set<String> = setOf(
-        "inspect_task",
-        "read_document_metadata",
-        "read_document",
-        "upload_document_for_summary",
-        "open_url",
-        "launch_app",
-        "share_preview"
-    )
+class AndroidToolExecutor(
+    private val context: Context,
+    private val registry: ToolRegistry = ToolRegistry()
+) {
+    val availableTools: Set<String>
+        get() = registry.availableToolNames()
 
-    fun executeIntentAction(action: PlannedAction): ToolResult = when (action.tool) {
-        "open_url" -> openUrl(action)
-        "launch_app" -> launchApp(action)
-        "share_preview" -> sharePreview(action)
-        "inspect_task" -> ToolResult(
-            actionId = action.id,
-            success = true,
-            summary = "任务状态已检查"
-        )
-        else -> ToolResult(
-            actionId = action.id,
-            success = false,
-            summary = "阶段一尚不支持该 Android 工具",
-            errorCode = "TOOL_NOT_AVAILABLE",
-            recoverable = false
-        )
+    fun executeIntentAction(action: PlannedAction): ToolResult {
+        if (!registry.isAvailable(action.tool)) {
+            return ToolResult(
+                actionId = action.id,
+                success = false,
+                summary = "当前版本不支持该工具：${action.tool}",
+                errorCode = "TOOL_NOT_AVAILABLE",
+                recoverable = false
+            )
+        }
+        return when (action.tool) {
+            "open_url" -> openUrl(action)
+            "launch_app" -> launchApp(action)
+            "share_preview" -> sharePreview(action)
+            "inspect_task" -> ToolResult(
+                actionId = action.id,
+                success = true,
+                summary = "任务状态已检查"
+            )
+            // Document/image tools need attachment URI + optional network; orchestrator only.
+            "read_document_metadata",
+            "read_document",
+            "upload_document_for_summary",
+            "analyze_image" -> ToolResult(
+                actionId = action.id,
+                success = false,
+                summary = "文档/图像工具需由任务编排层执行",
+                errorCode = "ORCHESTRATOR_REQUIRED",
+                recoverable = false
+            )
+            else -> ToolResult(
+                actionId = action.id,
+                success = false,
+                summary = "当前版本不支持该 Android 工具",
+                errorCode = "TOOL_NOT_AVAILABLE",
+                recoverable = false
+            )
+        }
     }
 
     private fun openUrl(action: PlannedAction): ToolResult {

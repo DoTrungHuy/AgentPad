@@ -27,5 +27,11 @@ android-app/**/build/
 android-app/captures/
 android-app/.kotlin/
 
+# Local ad-hoc APK copies (signed releases come from CI)
+*.apk
+*.apk.sha256
+AgentPad-debug-*.apk
+PocketAgent-debug-*.apk
+
 # Release staging
 release/

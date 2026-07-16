@@ -18,7 +18,7 @@ enum class ThemePreference {
 
 data class AppPreferences(
     val providerSettings: ProviderSettings = ProviderSettings(),
-    val theme: ThemePreference = ThemePreference.LIGHT,
+    val theme: ThemePreference = ThemePreference.DARK,
     val privacyMode: Boolean = false
 )
 
@@ -43,8 +43,8 @@ class SettingsStore(private val context: Context) {
                 visionModel = values[Keys.visionModel] ?: ""
             ),
             theme = runCatching {
-                ThemePreference.valueOf(values[Keys.theme] ?: ThemePreference.LIGHT.name)
-            }.getOrDefault(ThemePreference.LIGHT),
+                ThemePreference.valueOf(values[Keys.theme] ?: ThemePreference.DARK.name)
+            }.getOrDefault(ThemePreference.DARK),
             privacyMode = values[Keys.privacyMode] ?: false
         )
     }

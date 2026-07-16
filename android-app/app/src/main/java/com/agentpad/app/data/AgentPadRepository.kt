@@ -119,6 +119,20 @@ class AgentPadRepository(
         result: String? = null
     ): AgentTurn {
         val now = System.currentTimeMillis()
+        val existing = threadDao.getTurn(turn.id)
+        val currentStatus = existing?.status?.let {
+            runCatching { TurnStatus.valueOf(it) }.getOrNull()
+        }
+        // Terminal states are sticky, except CANCELLED may override COMPLETED/FAILED
+        // so user cancel wins a race against a late success/failure write.
+        if (existing != null && currentStatus in TERMINAL_STATUSES && currentStatus != status) {
+            val cancelOverrides =
+                status == TurnStatus.CANCELLED &&
+                    currentStatus in setOf(TurnStatus.COMPLETED, TurnStatus.FAILED)
+            if (!cancelOverrides) {
+                return existing.toDomain()
+            }
+        }
         val updated = turn.copy(
             status = status,
             result = result ?: turn.result,
@@ -145,6 +159,15 @@ class AgentPadRepository(
         threadDao.touchThread(turn.threadId, threadStatus.name, now)
         audit(turn.id, null, "STATUS_CHANGED", "任务状态变更为 ${status.name}")
         return updated
+    }
+
+    private companion object {
+        val TERMINAL_STATUSES = setOf(
+            TurnStatus.COMPLETED,
+            TurnStatus.FAILED,
+            TurnStatus.CANCELLED,
+            TurnStatus.SUPERSEDED
+        )
     }
 
     suspend fun addContextSummary(threadId: String, summary: String) {

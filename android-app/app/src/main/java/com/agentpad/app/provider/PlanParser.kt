@@ -4,10 +4,14 @@ import com.agentpad.app.domain.PlannedAction
 import com.agentpad.app.domain.RiskLevel
 import com.agentpad.app.domain.TaskPlan
 import com.agentpad.app.policy.ApprovalPolicy
+import com.agentpad.app.policy.PlanSanitizer
 import org.json.JSONException
 import org.json.JSONObject
 
-class PlanParser(private val policy: ApprovalPolicy) {
+class PlanParser(
+    private val policy: ApprovalPolicy,
+    private val sanitizer: PlanSanitizer = PlanSanitizer(policy.registry(), policy)
+) {
     fun parse(goal: String, raw: String): TaskPlan {
         try {
             val root = JSONObject(extractJson(raw))
@@ -20,7 +24,9 @@ class PlanParser(private val policy: ApprovalPolicy) {
                     val item = actionsJson.getJSONObject(index)
                     val tool = item.getString("tool").trim()
                     require(tool.isNotEmpty()) { "计划步骤缺少工具名称" }
-                    require(tool in policy.knownTools()) { "计划包含未知工具：$tool" }
+                    require(policy.plannableTools().contains(tool)) {
+                        "计划包含未知、未启用或禁止的工具：$tool"
+                    }
 
                     val arguments = when {
                         !item.has("arguments") || item.isNull("arguments") -> null
@@ -51,7 +57,7 @@ class PlanParser(private val policy: ApprovalPolicy) {
                     add(action)
                 }
             }
-            return TaskPlan(
+            val plan = TaskPlan(
                 goal = goal.take(MAX_GOAL),
                 title = root.optString("title", "新任务").take(MAX_TEXT),
                 summary = root.optString("summary").take(MAX_TEXT),
@@ -61,6 +67,7 @@ class PlanParser(private val policy: ApprovalPolicy) {
                     "目标完成、用户取消或出现无法安全处理的错误"
                 ).take(MAX_TEXT)
             )
+            return sanitizer.sanitize(plan)
         } catch (failure: JSONException) {
             throw IllegalArgumentException("模型返回的任务计划格式无效", failure)
         }

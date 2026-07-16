@@ -49,18 +49,18 @@ jobs:
       - name: Restore release keystore
         shell: bash
         env:
-          RELEASE_KEYSTORE_BASE64: ${{ secrets.AGENTPAD_RELEASE_KEYSTORE }}
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.POCKETAGENT_RELEASE_KEYSTORE || secrets.AGENTPAD_RELEASE_KEYSTORE }}
         run: |
           test -n "${RELEASE_KEYSTORE_BASE64}"
-          printf '%s' "${RELEASE_KEYSTORE_BASE64}" | base64 --decode > "${RUNNER_TEMP}/agentpad-release.jks"
+          printf '%s' "${RELEASE_KEYSTORE_BASE64}" | base64 --decode > "${RUNNER_TEMP}/pocketagent-release.jks"
 
       - name: Test, lint, sign, and generate SBOM
         working-directory: android-app
         env:
-          AGENTPAD_KEYSTORE_PATH: ${{ runner.temp }}/agentpad-release.jks
-          AGENTPAD_KEYSTORE_PASSWORD: ${{ secrets.AGENTPAD_KEYSTORE_PASSWORD }}
-          AGENTPAD_KEY_ALIAS: ${{ secrets.AGENTPAD_KEY_ALIAS }}
-          AGENTPAD_KEY_PASSWORD: ${{ secrets.AGENTPAD_KEY_PASSWORD }}
+          POCKETAGENT_KEYSTORE_PATH: ${{ runner.temp }}/pocketagent-release.jks
+          POCKETAGENT_KEYSTORE_PASSWORD: ${{ secrets.POCKETAGENT_KEYSTORE_PASSWORD || secrets.AGENTPAD_KEYSTORE_PASSWORD }}
+          POCKETAGENT_KEY_ALIAS: ${{ secrets.POCKETAGENT_KEY_ALIAS || secrets.AGENTPAD_KEY_ALIAS }}
+          POCKETAGENT_KEY_PASSWORD: ${{ secrets.POCKETAGENT_KEY_PASSWORD || secrets.AGENTPAD_KEY_PASSWORD }}
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon testDebugUnitTest lintRelease assembleRelease cyclonedxBom
@@ -70,14 +70,14 @@ jobs:
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
-          name="AgentPad-${GITHUB_REF_NAME}.apk"
+          name="PocketAgent-${GITHUB_REF_NAME}.apk"
           mkdir -p release
           cp android-app/app/build/outputs/apk/release/app-release.apk "release/${name}"
           "${ANDROID_HOME}/build-tools/35.0.0/apksigner" \
             verify --verbose --print-certs "release/${name}" \
             | tee release/SIGNING_CERTIFICATE.txt
           sha256sum "release/${name}" | tee "release/${name}.sha256"
-          cp android-app/build/reports/cyclonedx/bom.json "release/AgentPad-${GITHUB_REF_NAME}-sbom.cdx.json"
+          cp android-app/build/reports/cyclonedx/bom.json "release/PocketAgent-${GITHUB_REF_NAME}-sbom.cdx.json"
           cp LICENSE THIRD_PARTY_NOTICES.md release/
           jq -n \
             --arg version "${version}" \
@@ -98,13 +98,13 @@ jobs:
       - name: Upload signed release bundle
         uses: actions/upload-artifact@v6
         with:
-          name: AgentPad-${{ github.ref_name }}-release
+          name: PocketAgent-${{ github.ref_name }}-release
           path: release/
           if-no-files-found: error
 
       - name: Remove temporary release key
         if: always()
-        run: rm -f "${RUNNER_TEMP}/agentpad-release.jks"
+        run: rm -f "${RUNNER_TEMP}/pocketagent-release.jks"
 
   publish:
     needs: build
@@ -119,7 +119,7 @@ jobs:
       - name: Download signed release bundle
         uses: actions/download-artifact@v7
         with:
-          name: AgentPad-${{ github.ref_name }}-release
+          name: PocketAgent-${{ github.ref_name }}-release
           path: release
 
       - name: Publish GitHub pre-release
@@ -127,7 +127,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "${GITHUB_REF_NAME}" release/* \
-            --title "AgentPad ${GITHUB_REF_NAME}" \
+            --title "PocketAgent ${GITHUB_REF_NAME}" \
             --notes-file "docs/releases/${GITHUB_REF_NAME}.md" \
             --prerelease \
             --verify-tag
